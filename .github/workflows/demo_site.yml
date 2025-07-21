@@ -22,14 +22,31 @@ jobs:
         with:
           ruby-version: 2.7
           bundler-cache: true
-      - name: Clone target branch
+      - name: Setup deployment directory
         run: |
           REMOTE_BRANCH="${REMOTE_BRANCH:-gh-pages}"
           REMOTE_REPO="https://${GITHUB_ACTOR}:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git"
 
           echo "Publishing to ${GITHUB_REPOSITORY} on branch ${REMOTE_BRANCH}"
           rm -rf _site/
-          git clone --depth=1 --branch="${REMOTE_BRANCH}" --single-branch --no-checkout "${REMOTE_REPO}" _site/
+          mkdir -p _site/
+          
+          # Initialize git repository in _site
+          cd _site
+          git init
+          git remote add origin "${REMOTE_REPO}"
+          
+          # Try to fetch gh-pages branch if it exists, create it if it doesn't
+          if git fetch origin "${REMOTE_BRANCH}"; then
+            git checkout "${REMOTE_BRANCH}"
+          else
+            git checkout --orphan "${REMOTE_BRANCH}"
+            git rm -rf .
+            echo "# Demo Site" > README.md
+            git add README.md
+            git commit -m "Initialize gh-pages branch"
+          fi
+          cd ..
       - name: Build site
         run: bundle exec jekyll build --verbose --trace
       - name: Deploy to GitHub Pages
