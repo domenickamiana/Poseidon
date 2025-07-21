@@ -1,3 +1,7 @@
+---
+layout: post
+---
+
 ## Building Resilience: The Future of Sustainable Architecture
 
 As the world grapples with the challenges of climate change, natural disasters, and urbanization, the need for sustainable building practices has never been more pressing. Architects, engineers, and builders are under increasing pressure to design structures that not only minimize environmental impact but also provide resilience against extreme events. In this article, we'll explore the latest trends and strategies in sustainable building practices, and how they can help create a more resilient future.
