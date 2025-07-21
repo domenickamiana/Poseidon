@@ -1,8 +1,13 @@
-name: Build and Deploy Demo Site
-
+name: 'Automatic build'
 on:
-  # Run this workflow manually from the Actions tab
-  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - dev
+    paths-ignore:
+      - .gitignore
+      - README.md
+      - LICENSE
 
 jobs:
   deploy_demo_site:
@@ -12,54 +17,31 @@ jobs:
       BUNDLE_JOBS: 4
       BUNDLE_RETRY: 3
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v2
         with:
-          repository: jekyll/minima
-          ref: demo-site
-      - name: Set up Ruby 2.7
+          fetch-depth: 0  # for posts's lastmod
+      - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 2.7
           bundler-cache: true
+      - name: Check baseurl
+        run: |
+          baseurl="$(grep '^baseurl:' _config.yml | sed "s/.*: *//;s/['\"]//g;s/#.*//")"
+          if [[ -n $baseurl ]]; then
+            echo "BASE_URL=$baseurl" >> $GITHUB_ENV
+          fi
+      - name: Build Site
+        env:
+          JEKYLL_ENV: production
+        run: |
+          bundle exec jekyll b -d "_site$BASE_URL"
       - name: Setup deployment directory
         run: |
-          REMOTE_BRANCH="${REMOTE_BRANCH:-gh-pages}"
-          REMOTE_REPO="https://${GITHUB_ACTOR}:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git"
-
-          echo "Publishing to ${GITHUB_REPOSITORY} on branch ${REMOTE_BRANCH}"
-          rm -rf _site/
-          mkdir -p _site/
-          
-          # Initialize git repository in _site
-          cd _site
-          git init
-          git remote add origin "${REMOTE_REPO}"
-          
-          # Try to fetch gh-pages branch if it exists, create it if it doesn't
-          if git fetch origin "${REMOTE_BRANCH}"; then
-            git checkout "${REMOTE_BRANCH}"
-          else
-            git checkout --orphan "${REMOTE_BRANCH}"
-            git rm -rf .
-            echo "# Demo Site" > README.md
-            git add README.md
-            git commit -m "Initialize gh-pages branch"
+          if [[ -n $BASE_URL ]]; then
+            mv _site$BASE_URL _site-rename
+            rm -rf _site
+            mv _site-rename _site
           fi
-          cd ..
-      - name: Build site
-        run: bundle exec jekyll build --verbose --trace
-      - name: Deploy to GitHub Pages
-        run: |
-          SOURCE_COMMIT="$(git log -1 --pretty="%an: %B" "$GITHUB_SHA")"
-          pushd _site &>/dev/null
-          : > .nojekyll
-
-          git add --all
-          git -c user.name="${GITHUB_ACTOR}" -c user.email="${GITHUB_ACTOR}@users.noreply.github.com" \
-            commit --quiet \
-            --message "Deploy demo-site from ${GITHUB_SHA}" \
-            --message "$SOURCE_COMMIT"
-          git push
-
-          popd &>/dev/null
+          bash tools/deploy.sh
